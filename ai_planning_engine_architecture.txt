@@ -1,0 +1,217 @@
+AI PLANNING ENGINE ARCHITECTURE AI Execution Engine Product
+
+1.  PURPOSE
+
+The AI Planning Engine is responsible for orchestrating all AI-related
+reasoning in the system. Instead of scattering prompts across the
+codebase, the Planning Engine centralizes AI logic.
+
+Responsibilities: - Generate initial plan - Break plan into tasks -
+Assist user during task execution - Adjust future tasks using feedback
+
+This keeps AI interactions structured and maintainable.
+
+------------------------------------------------------------------------
+
+2.  HIGH LEVEL ARCHITECTURE
+
+User Goal | v Planning Engine | |—- Plan Generator |—- Task Generator
+|—- Task Assistant |—- Plan Adjuster | v LLM Provider (OpenAI / Claude)
+
+The API layer should interact ONLY with the Planning Engine.
+
+------------------------------------------------------------------------
+
+3.  BACKEND STRUCTURE
+
+backend/app/ai_engine/
+
+engine.py planner.py task_generator.py task_assistant.py
+plan_adjuster.py prompt_manager.py
+
+Purpose:
+
+engine.py Central orchestrator for AI workflows.
+
+planner.py Creates high level strategy from goal.
+
+task_generator.py Breaks strategy into executable tasks.
+
+task_assistant.py Helps user complete a specific task.
+
+plan_adjuster.py Updates upcoming tasks using feedback.
+
+prompt_manager.py Loads and manages prompt templates.
+
+------------------------------------------------------------------------
+
+4.  CORE ENGINE STRUCTURE
+
+Example structure:
+
+class PlanningEngine:
+
+    def __init__(self, llm_client):
+        self.llm = llm_client
+
+    def generate_plan(self, goal):
+        return planner.generate_plan(self.llm, goal)
+
+    def generate_tasks(self, goal, plan):
+        return task_generator.generate_tasks(self.llm, goal, plan)
+
+    def assist_task(self, task, question):
+        return task_assistant.assist(self.llm, task, question)
+
+    def adjust_plan(self, goal, plan, feedback):
+        return plan_adjuster.adjust(self.llm, goal, plan, feedback)
+
+------------------------------------------------------------------------
+
+5.  PROMPT MANAGEMENT
+
+Store prompts in one location.
+
+backend/app/prompts/
+
+plan_generation_prompt.txt task_generation_prompt.txt
+task_assist_prompt.txt plan_adjust_prompt.txt
+
+Example loader:
+
+def load_prompt(name): with open(f”app/prompts/{name}.txt”) as f: return
+f.read()
+
+Centralizing prompts makes iteration easier.
+
+------------------------------------------------------------------------
+
+6.  PLAN GENERATION PROMPT
+
+User goal: {goal}
+
+Create a structured execution plan.
+
+Requirements: - Focus on practical execution - Avoid theoretical
+advice - Break goal into actionable phases
+
+Return JSON:
+
+{ “plan_summary”: ““,”phases”: [] }
+
+------------------------------------------------------------------------
+
+7.  TASK GENERATION PROMPT
+
+User goal: {goal}
+
+Execution plan: {plan}
+
+Generate daily tasks.
+
+Rules:
+
+-   each task must take 30–90 minutes
+-   tasks must build toward the goal
+-   tasks must be executable by a small business owner
+
+Return JSON:
+
+{ “tasks”:[ { “day”:1,
+“title”:““,”instructions”:““,”expected_outcome”:“” } ] }
+
+------------------------------------------------------------------------
+
+8.  TASK ASSISTANCE PROMPT
+
+User task: {task}
+
+User question: {question}
+
+Only help with the task. Avoid unrelated suggestions. Focus on task
+completion.
+
+------------------------------------------------------------------------
+
+9.  PLAN ADJUSTMENT PROMPT
+
+User goal: {goal}
+
+Original plan: {plan}
+
+Task feedback: {feedback}
+
+Adjust next 3 tasks based on results.
+
+Return JSON tasks.
+
+------------------------------------------------------------------------
+
+10. GOAL STATE MACHINE
+
+Goal states:
+
+DRAFT APPROVED COMMITTED IN_PROGRESS COMPLETED
+
+Lifecycle:
+
+Goal Created -> AI Plan Generated -> User Approval -> Commitment ->
+Execution -> Completion
+
+------------------------------------------------------------------------
+
+11. TASK LIFECYCLE
+
+Task states:
+
+PENDING ACTIVE COMPLETED SKIPPED BLOCKED
+
+------------------------------------------------------------------------
+
+12. BACKEND EXECUTION FLOW
+
+POST /goals
+
+goal_service -> planning_engine.generate_plan ->
+planning_engine.generate_tasks -> tasks stored in database
+
+Execution:
+
+GET /current-task
+
+Completion:
+
+PATCH /tasks/{id}/complete
+
+Feedback:
+
+planning_engine.adjust_plan
+
+------------------------------------------------------------------------
+
+13. STRUCTURED OUTPUT VALIDATION
+
+Use Pydantic models to enforce AI output format.
+
+Example:
+
+class Task(BaseModel): day: int title: str instructions: str
+expected_outcome: str
+
+This prevents malformed AI responses.
+
+------------------------------------------------------------------------
+
+14. DEVELOPMENT STEPS
+
+Step 1 Implement Planning Engine skeleton
+
+Step 2 Implement plan generation prompt
+
+Step 3 Implement task generator
+
+Step 4 Save tasks in database
+
+Step 5 Create /current-task endpoint
+
+Once these work, the core execution engine is complete.

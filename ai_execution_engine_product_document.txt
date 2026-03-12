@@ -1,0 +1,176 @@
+AI EXECUTION ENGINE - PRODUCT DOCUMENT From Idea to MVP Execution
+
+1.  IDEA OVERVIEW The AI Execution Engine is a productivity and
+    execution platform designed to solve a common issue with AI tools:
+    users generate plans but rarely execute them.
+
+Instead of endless AI conversations, the platform converts goals into
+structured execution plans and guides users through step-by-step tasks
+until the goal is achieved.
+
+Core principle: Goal → Plan → Approval → Commitment → Tasks → Feedback →
+Progress
+
+The system acts like an AI execution coach rather than a chatbot.
+
+2.  CORE PROBLEM Many people use AI for:
+
+-   business plans
+-   marketing strategies
+-   learning roadmaps
+-   productivity plans
+
+However, execution rarely happens. Users get stuck in planning or
+endless prompts.
+
+This product solves the “execution gap” by: - turning AI plans into
+tasks - enforcing commitment - guiding execution daily - tracking
+progress and streaks - adapting plans using feedback
+
+3.  TARGET USERS Initial target segment: Small business owners
+
+Examples: - bakery owners - local service businesses - consultants -
+marketers - founders
+
+Later expansion: - entrepreneurs - learners - productivity users
+
+4.  CORE WORKFLOW
+
+Step 1: User enters a goal Example: “Increase bakery sales in 30 days”
+
+Step 2: AI generates structured execution plan
+
+Step 3: User reviews and approves plan
+
+Step 4: User commits to execution
+
+Step 5: System provides daily task
+
+Step 6: User completes task
+
+Step 7: User provides feedback
+
+Step 8: AI adapts future tasks
+
+Step 9: Progress and streaks tracked
+
+5.  KEY MVP FEATURES
+
+6.  Goal creation
+
+7.  AI plan generation
+
+8.  Plan approval
+
+9.  Commitment contract
+
+10. Daily task engine
+
+11. Focus mode
+
+12. Execution streak tracking
+
+13. Task feedback loop
+
+14. AI task assistance
+
+15. SYSTEM ARCHITECTURE
+
+Frontend: Next.js + React + Tailwind
+
+Backend: Node.js (Express) or Python FastAPI
+
+Database: PostgreSQL / Supabase
+
+AI Integration: OpenAI / Claude API
+
+Architecture Flow:
+
+Frontend | | REST API v Backend | |—- Goal Service |—- Task Service |—-
+Commitment Service |—- AI Service | Database | AI Provider
+
+7.  DATABASE DESIGN
+
+users id email password_hash created_at
+
+goals id user_id goal_text plan_summary status created_at
+
+tasks id goal_id day_number title instructions expected_outcome status
+completed_at
+
+commitments id goal_id commitment_date status
+
+task_feedback id task_id feedback created_at
+
+user_streaks user_id current_streak max_streak
+
+8.  API DESIGN
+
+POST /auth/register POST /auth/login
+
+POST /goals GET /goals GET /goals/{id}
+
+PATCH /goals/{id}/approve POST /goals/{id}/commit
+
+GET /goals/{id}/current-task
+
+PATCH /tasks/{id}/complete POST /tasks/{id}/assist POST
+/tasks/{id}/feedback
+
+9.  AI PROMPTS
+
+PLAN GENERATION PROMPT
+
+User goal: {goal}
+
+Generate a structured execution plan.
+
+Requirements: - Break into daily tasks - Tasks should be achievable
+within 30–90 minutes - Tasks must build toward final goal
+
+Return JSON format: { plan_summary:““, tasks:[ { day:1, title:““,
+instructions:”“, expected_outcome:”” }] }
+
+TASK ASSISTANCE PROMPT
+
+User task: {task}
+
+User question: {question}
+
+Answer only in context of task.
+
+PLAN ADJUSTMENT PROMPT
+
+User goal: {goal}
+
+Original plan: {plan}
+
+Feedback: {feedback}
+
+Adjust next 3 tasks.
+
+10. DEVELOPMENT ROADMAP
+
+Phase 1 (Weeks 1–2) Goal creation AI plan generation Task database
+
+Phase 2 (Weeks 3–4) Task dashboard Task completion Progress tracking
+
+Phase 3 (Weeks 5–6) Commitment contract Focus mode Streak tracking
+
+Phase 4 (Weeks 7–8) Feedback loop Plan adjustment User testing
+
+11. MVP VALIDATION
+
+Give product to: 10–20 users
+
+Observe: Do users complete tasks?
+
+If yes → expand product. If no → improve behavior design.
+
+12. LONG TERM VISION
+
+AI Execution Coach platform where AI helps users: - plan - execute -
+adapt - complete goals
+
+Potential expansions: - team execution - business automation - learning
+paths - habit systems

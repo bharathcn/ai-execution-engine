@@ -1,0 +1,103 @@
+AI EXECUTION ENGINE - DATABASE SCHEMA DESIGN
+
+Purpose: Design a scalable database schema that supports: - goals -
+execution tasks - feedback loops - streak tracking - commitment
+contracts - analytics (future)
+
+------------------------------------------------------------------------
+
+CORE TABLES
+
+users
+
+id (UUID) email password_hash created_at
+
+Description: Stores user accounts.
+
+------------------------------------------------------------------------
+
+goals
+
+id (UUID) user_id (FK users.id) goal_text plan_summary status created_at
+updated_at
+
+Status values: DRAFT APPROVED COMMITTED IN_PROGRESS COMPLETED
+
+Description: Stores high-level goals submitted by the user.
+
+------------------------------------------------------------------------
+
+tasks
+
+id (UUID) goal_id (FK goals.id) day_number title instructions
+expected_outcome status created_at completed_at
+
+Status values: PENDING ACTIVE COMPLETED SKIPPED BLOCKED
+
+Description: Stores execution tasks generated from AI plans.
+
+------------------------------------------------------------------------
+
+task_feedback
+
+id (UUID) task_id (FK tasks.id) feedback_text created_at
+
+Description: User feedback about task results.
+
+Used for AI plan adjustment.
+
+------------------------------------------------------------------------
+
+commitments
+
+id (UUID) goal_id (FK goals.id) commitment_date status
+
+Status values: ACTIVE BROKEN COMPLETED
+
+Description: Tracks commitment contracts.
+
+------------------------------------------------------------------------
+
+user_streaks
+
+user_id (FK users.id) current_streak max_streak last_task_date
+
+Description: Tracks execution streaks.
+
+------------------------------------------------------------------------
+
+FUTURE ANALYTICS TABLE
+
+execution_metrics
+
+id (UUID) user_id goal_id tasks_completed completion_rate avg_task_time
+
+Purpose: Used for analytics dashboard.
+
+------------------------------------------------------------------------
+
+RELATIONSHIP DIAGRAM
+
+users | | 1:N v goals | | 1:N v tasks | | 1:N v task_feedback
+
+goals | | 1:1 v commitments
+
+users | | 1:1 v user_streaks
+
+------------------------------------------------------------------------
+
+DEVELOPMENT ORDER
+
+Step 1 Create users table
+
+Step 2 Create goals table
+
+Step 3 Create tasks table
+
+Step 4 Create task_feedback table
+
+Step 5 Add commitments
+
+Step 6 Add streak tracking
+
+This schema supports future expansion without major migrations.

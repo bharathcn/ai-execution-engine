@@ -1,0 +1,14 @@
+version: '3'
+services:
+
+ backend:
+  build: ../ai-execution-backend
+  ports:
+   - "8000:8000"
+
+ postgres:
+  image: postgres:15
+  environment:
+   POSTGRES_USER: admin
+   POSTGRES_PASSWORD: password
+   POSTGRES_DB: ai_execution

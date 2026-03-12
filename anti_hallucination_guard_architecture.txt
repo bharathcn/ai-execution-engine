@@ -1,0 +1,121 @@
+ANTI-HALLUCINATION GUARD ARCHITECTURE
+
+Purpose: Reduce unreliable AI outputs in the execution engine.
+
+Instead of trusting LLM responses directly, the system validates and
+filters outputs.
+
+------------------------------------------------------------------------
+
+SYSTEM FLOW
+
+User Goal | v Planning Engine | v LLM Plan Generator | v
+Anti-Hallucination Guard | v Structured Tasks | v Execution Engine
+
+------------------------------------------------------------------------
+
+GUARD COMPONENTS
+
+validator.py
+
+Validates generated tasks.
+
+Checks: - instruction length - vague language - unrealistic actions
+
+------------------------------------------------------------------------
+
+output_parser.py
+
+Ensures LLM responses follow strict JSON schema.
+
+Example schema:
+
+Task: - day - title - instructions - expected_outcome
+
+If parsing fails: - regenerate output
+
+------------------------------------------------------------------------
+
+task_checker.py
+
+Validates feasibility of tasks.
+
+Rules:
+
+-   task duration < 90 minutes
+-   clear instructions
+-   no vague marketing advice
+
+Example rejected tasks:
+
+“Use viral marketing” “Build a brand presence”
+
+------------------------------------------------------------------------
+
+PROMPT CONSTRAINTS
+
+LLM prompts must enforce:
+
+-   structured JSON output
+-   specific instructions
+-   limited task scope
+
+Example prompt rule:
+
+Each task must be executable within 30–90 minutes.
+
+------------------------------------------------------------------------
+
+SELF-CRITIQUE PASS
+
+After generating tasks, AI performs a review pass.
+
+Prompt:
+
+Review these tasks. Check for: - vague instructions - unrealistic
+actions - missing steps
+
+Return corrected tasks.
+
+------------------------------------------------------------------------
+
+CONTEXT LIMITING
+
+Avoid open-ended prompts.
+
+Bad prompt: “Create a marketing strategy”
+
+Better prompt: “Create one actionable task executable within 60
+minutes.”
+
+------------------------------------------------------------------------
+
+IMPLEMENTATION STRUCTURE
+
+backend/app/ai_guard/
+
+validator.py task_checker.py output_parser.py
+
+------------------------------------------------------------------------
+
+VALIDATION EXAMPLE
+
+def validate_task(task):
+
+    if len(task["instructions"]) < 20:
+        return False
+
+    if "viral" in task["instructions"].lower():
+        return False
+
+    return True
+
+------------------------------------------------------------------------
+
+WHY THIS MATTERS
+
+Without guard: AI hallucinations can produce unreliable tasks.
+
+With guard: Tasks are validated before execution.
+
+This ensures the system delivers reliable execution guidance.

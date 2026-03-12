@@ -1,0 +1,169 @@
+body {
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background: #f6f7fb;
+  margin: 0;
+}
+
+.container {
+  max-width: 900px;
+  margin: auto;
+  padding: 40px 20px;
+}
+
+.section {
+  background: white;
+  border-radius: 10px;
+  padding: 24px;
+  margin-bottom: 25px;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.05);
+}
+
+h1 {
+  font-size: 28px;
+  margin-bottom: 30px;
+}
+
+h2 {
+  margin-bottom: 15px;
+}
+
+input {
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  width: 70%;
+  margin-right: 10px;
+}
+
+button {
+  padding: 10px 16px;
+  border-radius: 6px;
+  border: none;
+  background: #4f46e5;
+  color: white;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #4338ca;
+}
+
+.goal-card {
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid #eee;
+  margin-bottom: 12px;
+}
+
+.progress-bar {
+  height: 8px;
+  background: #eee;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #4f46e5;
+}
+
+.goal-card:hover {
+  transform: translateY(-2px);
+  transition: 0.15s ease;
+  box-shadow: 0 6px 14px rgba(0,0,0,0.06);
+}
+
+.dashboard {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 25px;
+}
+
+.sidebar {
+  background: white;
+  border-radius: 10px;
+  padding: 20px;
+  height: fit-content;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.05);
+
+  position: sticky;
+  top: 20px;
+}
+
+.sidebar-item {
+  padding: 10px 0;
+  cursor: pointer;
+  color: #333;
+}
+
+.sidebar-item:hover {
+  color: #4f46e5;
+  font-weight: 500;
+}
+
+.ai-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(255,255,255,0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.ai-overlay-content {
+  text-align: center;
+}
+
+.spinner {
+  border: 4px solid #e5e7eb;
+  border-top: 4px solid #4f46e5;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  margin: auto;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg);}
+  100% { transform: rotate(360deg);}
+}
+
+/* Goal status badges */
+
+.badge{
+  font-size:11px;
+  padding:3px 8px;
+  border-radius:999px;
+  font-weight:600;
+  letter-spacing:0.3px;
+}
+
+.badge-active{
+  background:#eef2ff;
+  color:#4338ca;
+}
+
+.badge-draft{
+  background:#f3f4f6;
+  color:#4b5563;
+}
+
+.badge-completed{
+  background:#dcfce7;
+  color:#15803d;
+}
+.task-fade-out{
+  opacity:0;
+  transform:translateY(-6px);
+  transition:all 0.25s ease;
+}
+
+.goal-card{
+  transition:all 0.25s ease;
+}

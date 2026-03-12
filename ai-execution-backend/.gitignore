@@ -1,0 +1,18 @@
+# Next.js
+.next/
+
+# Node
+node_modules/
+
+# Python
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Environment
+.env
+
+# Database
+*.db
