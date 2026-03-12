@@ -1,11 +1,11 @@
 # Next.js
-.next/
+ai-execution-frontend/.next/
 
 # Node
-node_modules/
+ai-execution-frontend/node_modules/
 
-# Python
-venv/
+# Python virtual env
+ai-execution-backend/venv/
 
 # Python cache
 __pycache__/
