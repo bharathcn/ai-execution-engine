@@ -6,6 +6,7 @@ from app.models.goal import Goal
 from app.models.task import Task
 from app.models.user import User
 
+from app.api.auth_routes import router as auth_router
 from app.api.goal_routes import router as goal_router
 from app.api.task_routes import router as task_router
 
@@ -25,5 +26,6 @@ app.add_middleware(
 def health():
     return {"status":"ok"}
 
+app.include_router(auth_router)
 app.include_router(goal_router, prefix="/goals")
 app.include_router(task_router, prefix="/tasks")
