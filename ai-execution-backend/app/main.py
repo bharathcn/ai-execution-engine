@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database.db import engine, Base
 from app.models.goal import Goal
 from app.models.task import Task
+from app.models.user import User
 
 from app.api.goal_routes import router as goal_router
 from app.api.task_routes import router as task_router
