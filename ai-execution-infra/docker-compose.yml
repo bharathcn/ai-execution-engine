@@ -3,6 +3,8 @@ services:
     build: ../ai-execution-backend
     ports:
       - "8000:8000"
+    env_file:
+      - ../ai-execution-backend/.env
 
   frontend:
     build: ../ai-execution-frontend
