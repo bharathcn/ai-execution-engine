@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { apiFetch } from "../lib/api";
 
 export default function GoalForm({ onGoalActivated }: any) {
   const [goal, setGoal] = useState("");
@@ -28,17 +29,15 @@ export default function GoalForm({ onGoalActivated }: any) {
 
     setSummary("");
     setLoading(true);
-    const response = await fetch("http://localhost:8000/goals/", {
+    const response = await apiFetch("/goals/", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
       body: JSON.stringify({
         goal_text: goal,
       }),
     });
 
     const data = await response.json();
+    console.log("Data:", data);
     setGoalId(data.goal_id);
 
     const parsedPlan = JSON.parse(data.plan);
@@ -101,7 +100,7 @@ export default function GoalForm({ onGoalActivated }: any) {
                   setSummary("");
                   setPlanTasks([]);
 
-                  await fetch(`http://localhost:8000/goals/${goalId}/activate`, {
+                  await apiFetch(`/goals/${goalId}/activate`, {
                     method: "PATCH",
                   });
 

@@ -1,19 +1,22 @@
+import os
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer
 from jose import jwt, JWTError
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
+from dotenv import load_dotenv
 
 from app.database.db import get_db
 from app.models.user import User
 
+load_dotenv()
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-SECRET_KEY = "dev-secret-key"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+SECRET_KEY = os.getenv("JWT_SECRET", "dev-secret-key")
+ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "60"))
+security = HTTPBearer()
 
 
 def hash_password(password: str) -> str:
@@ -33,9 +36,10 @@ def create_access_token(data: dict):
 
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    credentials = Depends(security),
     db: Session = Depends(get_db),
 ):
+    token = credentials.credentials
     credentials_exception = HTTPException(status_code=401, detail="Invalid authentication credentials")
 
     try:

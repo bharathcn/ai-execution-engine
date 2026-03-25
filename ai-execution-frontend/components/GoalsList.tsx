@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { apiFetch } from "../lib/api";
 
 function ProgressRing({ progress }) {
 
@@ -53,7 +54,7 @@ export default function YourGoals({ refreshTrigger }: any) {
   const [goalTasks, setGoalTasks] = useState({});
 
   function loadGoals() {
-    fetch("http://localhost:8000/goals")
+    apiFetch("/goals")
       .then((res) => res.json())
       .then((data) => {
         const active = data.filter((g) => g.status === "ACTIVE");
@@ -79,7 +80,7 @@ export default function YourGoals({ refreshTrigger }: any) {
     setExpandedGoal(goalId);
 
     if (!goalTasks[goalId]) {
-      fetch(`http://localhost:8000/goals/${goalId}/tasks`)
+      apiFetch(`/goals/${goalId}/tasks`)
         .then((res) => res.json())
         .then((data) => {
           const tasksArray = Array.isArray(data) ? data : [];

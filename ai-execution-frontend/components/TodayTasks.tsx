@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { apiFetch } from "../lib/api";
 
 export default function TodayTasks({ refreshTrigger, onTaskComplete }: any) {
   const [tasks, setTasks] = useState<any[]>([]);
@@ -10,7 +11,7 @@ export default function TodayTasks({ refreshTrigger, onTaskComplete }: any) {
   const [removingTask, setRemovingTask] = useState<number | null>(null);
 
   function loadTasks() {
-    fetch("http://localhost:8000/tasks/today")
+    apiFetch("/tasks/today")
       .then((res) => res.json())
       .then((data) => {
         setTasks(data);
@@ -21,11 +22,11 @@ export default function TodayTasks({ refreshTrigger, onTaskComplete }: any) {
   }
 
   async function unlockNextDay() {
-    await fetch("http://localhost:8000/tasks/unlock", {
+    await apiFetch("/tasks/unlock", {
       method: "PATCH",
     });
 
-    fetch("http://localhost:8000/tasks/today")
+    apiFetch("/tasks/today")
       .then((res) => res.json())
       .then((data) => {
         setTasks(data);
@@ -44,7 +45,7 @@ export default function TodayTasks({ refreshTrigger, onTaskComplete }: any) {
   function completeTask(taskId: number) {
     const remainingVisibleTasks = tasks.length;
 
-    fetch(`http://localhost:8000/tasks/${taskId}/complete`, {
+    apiFetch(`/tasks/${taskId}/complete`, {
       method: "PATCH",
     }).then(() => {
       setRemovingTask(taskId);

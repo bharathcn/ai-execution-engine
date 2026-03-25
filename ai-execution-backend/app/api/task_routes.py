@@ -1,20 +1,45 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime, date
 from app.database.db import get_db
 from app.models.task import Task
 from app.models.goal import Goal
+from app.models.user import User
+from app.services.auth_service import get_current_user
 
 router = APIRouter()
 
 
-@router.patch("/{task_id}/complete")
-def complete_task(task_id: int, db: Session = Depends(get_db)):
+@router.get("/")
+def get_tasks(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    tasks = (
+        db.query(Task)
+        .join(Goal, Task.goal_id == Goal.id)
+        .filter(Goal.user_id == current_user.id)
+        .all()
+    )
 
-    task = db.query(Task).filter(Task.id == task_id).first()
+    return tasks
+
+
+@router.patch("/{task_id}/complete")
+def complete_task(
+    task_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    task = (
+        db.query(Task)
+        .join(Goal, Task.goal_id == Goal.id)
+        .filter(Task.id == task_id, Goal.user_id == current_user.id)
+        .first()
+    )
 
     if not task:
-        return {"error": "Task not found"}
+        raise HTTPException(status_code=404, detail="Task not found")
 
     # mark task completed
     task.status = "COMPLETED"
@@ -37,8 +62,21 @@ def complete_task(task_id: int, db: Session = Depends(get_db)):
 
     return {"message": "Task completed"}
 
+
 @router.get("/goal/{goal_id}/current")
-def get_current_task(goal_id: int, db: Session = Depends(get_db)):
+def get_current_task(
+    goal_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    goal = (
+        db.query(Goal)
+        .filter(Goal.id == goal_id, Goal.user_id == current_user.id)
+        .first()
+    )
+
+    if not goal:
+        raise HTTPException(status_code=404, detail="Goal not found")
 
     task = (
         db.query(Task)
@@ -57,8 +95,15 @@ def get_current_task(goal_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/today")
-def get_today_tasks(db: Session = Depends(get_db)):
-    goals = db.query(Goal).filter(Goal.status == "ACTIVE").all()
+def get_today_tasks(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    goals = (
+        db.query(Goal)
+        .filter(Goal.status == "ACTIVE", Goal.user_id == current_user.id)
+        .all()
+    )
     result = []
 
     for goal in goals:
@@ -90,9 +135,17 @@ def get_today_tasks(db: Session = Depends(get_db)):
 
     return result
 
+
 @router.patch("/unlock")
-def unlock_next_day(db: Session = Depends(get_db)):
-    goals = db.query(Goal).filter(Goal.status == "ACTIVE").all()
+def unlock_next_day(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    goals = (
+        db.query(Goal)
+        .filter(Goal.status == "ACTIVE", Goal.user_id == current_user.id)
+        .all()
+    )
 
     for goal in goals:
         if not goal.start_date:

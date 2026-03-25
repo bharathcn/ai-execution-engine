@@ -6,11 +6,19 @@ from sqlalchemy.orm import Session
 from app.models.task import Task
 from app.database.db import get_db
 from app.models.goal import Goal
+from app.models.user import User
+from app.services.auth_service import get_current_user
 from app.services.ai_service import generate_plan
 
 router = APIRouter()
+
+
 @router.post("/")
-def create_goal(goal: dict, db: Session = Depends(get_db)):
+def create_goal(
+    goal: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     
     goal_text = goal.get("goal_text")
     if not goal_text or goal_text.strip() == "":
@@ -20,7 +28,8 @@ def create_goal(goal: dict, db: Session = Depends(get_db)):
 
     goal_obj = Goal(
         goal_text=goal_text,
-        plan_summary=""
+        plan_summary="",
+        user_id=current_user.id
     )
 
     db.add(goal_obj)
@@ -53,27 +62,51 @@ def create_goal(goal: dict, db: Session = Depends(get_db)):
         "goal_id": goal_obj.id
     }
 
+
 @router.get("/tasks")
-def get_tasks(db: Session = Depends(get_db)):
-    tasks = db.query(Task).all()
+def get_tasks(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    tasks = (
+        db.query(Task)
+        .join(Goal, Task.goal_id == Goal.id)
+        .filter(Goal.user_id == current_user.id)
+        .all()
+    )
     return tasks
 
+
 @router.get("/{goal_id}/tasks")
-def get_tasks_by_goal(goal_id: int, db: Session = Depends(get_db)):
+def get_tasks_by_goal(
+    goal_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    goal = (
+        db.query(Goal)
+        .filter(Goal.id == goal_id, Goal.user_id == current_user.id)
+        .first()
+    )
+
+    if not goal:
+        raise HTTPException(status_code=404, detail="Goal not found")
 
     tasks = db.query(Task).filter(Task.goal_id == goal_id).all()
 
     return tasks
 
-@router.get("/")
-def get_goals(db: Session = Depends(get_db)):
 
-    goals = db.query(Goal).all()
+@router.get("/")
+def get_goals(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    goals = db.query(Goal).filter(Goal.user_id == current_user.id).all()
 
     result = []
 
     for goal in goals:
-
         total_tasks = db.query(Task).filter(Task.goal_id == goal.id).count()
 
         completed_tasks = db.query(Task).filter(
@@ -93,13 +126,21 @@ def get_goals(db: Session = Depends(get_db)):
 
     return result
 
-@router.patch("/{goal_id}/activate")
-def activate_goal(goal_id: int, db: Session = Depends(get_db)):
 
-    goal = db.query(Goal).filter(Goal.id == goal_id).first()
+@router.patch("/{goal_id}/activate")
+def activate_goal(
+    goal_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    goal = (
+        db.query(Goal)
+        .filter(Goal.id == goal_id, Goal.user_id == current_user.id)
+        .first()
+    )
 
     if not goal:
-        return {"error": "Goal not found"}
+        raise HTTPException(status_code=404, detail="Goal not found")
 
     goal.status = "ACTIVE"
     goal.start_date = date.today()
