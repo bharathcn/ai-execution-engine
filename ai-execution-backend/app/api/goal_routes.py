@@ -3,14 +3,199 @@ import json
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.config.goal_config import GOAL_CATEGORIES
 from app.models.task import Task
 from app.database.db import get_db
 from app.models.goal import Goal
 from app.models.user import User
+from app.services.ai_service import build_prompt, generate_plan, generate_tasks_from_ai
 from app.services.auth_service import get_current_user
-from app.services.ai_service import generate_plan
+from app.services.goal_service import detect_category
 
 router = APIRouter()
+
+
+def _save_tasks(db: Session, goal_id: int, tasks_data: list[dict]) -> None:
+    task_objects = []
+    for task in tasks_data:
+        task_objects.append(
+            Task(
+                goal_id=goal_id,
+                day_number=task["day_number"],
+                title=task["title"],
+                instructions=task["instructions"],
+                expected_outcome=task["expected_outcome"],
+                status="PENDING",
+            )
+        )
+
+    db.add_all(task_objects)
+    db.commit()
+
+
+def _create_goal_with_tasks(
+    db: Session,
+    current_user: User,
+    goal_text: str,
+    tasks_data: list[dict],
+    *,
+    category: str | None = None,
+    answers: dict | None = None,
+    status: str = "DRAFT",
+) -> Goal:
+    goal_obj = Goal(
+        goal_text=goal_text,
+        category=category,
+        answers_json=json.dumps(answers or {}),
+        plan_summary="",
+        status=status,
+        user_id=current_user.id,
+    )
+    db.add(goal_obj)
+    db.commit()
+    db.refresh(goal_obj)
+
+    _save_tasks(db, goal_obj.id, tasks_data)
+
+    return goal_obj
+
+
+def _get_owned_goal(db: Session, current_user: User, goal_id: int) -> Goal:
+    goal = (
+        db.query(Goal)
+        .filter(Goal.id == goal_id, Goal.user_id == current_user.id)
+        .first()
+    )
+
+    if not goal:
+        raise HTTPException(status_code=404, detail="Goal not found")
+
+    return goal
+
+
+def _get_owned_draft_goal(db: Session, current_user: User, goal_id: int) -> Goal:
+    goal = _get_owned_goal(db, current_user, goal_id)
+
+    if goal.status != "DRAFT":
+        raise HTTPException(
+            status_code=400,
+            detail="Only draft goals can be approved or regenerated",
+        )
+
+    return goal
+
+
+def _load_goal_answers(goal: Goal) -> dict:
+    if not goal.answers_json:
+        return {}
+
+    try:
+        parsed_answers = json.loads(goal.answers_json)
+    except json.JSONDecodeError:
+        return {}
+
+    return parsed_answers if isinstance(parsed_answers, dict) else {}
+
+
+@router.post("/intake/start")
+def start_goal_intake(data: dict):
+    goal_text = data.get("goal_text")
+    if not isinstance(goal_text, str):
+        goal_text = str(goal_text or "")
+
+    if not goal_text.strip():
+        raise HTTPException(status_code=400, detail="goal_text is required")
+
+    category = detect_category(goal_text)
+    questions = GOAL_CATEGORIES.get(category, {}).get("questions", [])
+
+    return {
+        "category": category,
+        "questions": questions,
+    }
+
+
+@router.post("/intake/complete")
+def complete_goal_intake(
+    data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    goal_text = data.get("goal_text")
+    if not isinstance(goal_text, str):
+        goal_text = str(goal_text or "")
+
+    if not goal_text.strip():
+        raise HTTPException(status_code=400, detail="goal_text is required")
+
+    category = data.get("category")
+    if not isinstance(category, str) or category not in GOAL_CATEGORIES:
+        category = detect_category(goal_text)
+
+    answers = data.get("answers", {})
+    if not isinstance(answers, dict):
+        answers = {}
+
+    prompt = build_prompt(goal_text, category, answers)
+
+    try:
+        tasks_data = generate_tasks_from_ai(prompt)
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail="Failed to generate valid tasks") from exc
+
+    goal_obj = _create_goal_with_tasks(
+        db=db,
+        current_user=current_user,
+        goal_text=goal_text,
+        tasks_data=tasks_data,
+        category=category,
+        answers=answers,
+        status="DRAFT",
+    )
+
+    return {"goal_id": goal_obj.id, "tasks": tasks_data}
+
+
+@router.post("/{goal_id}/approve")
+def approve_goal(
+    goal_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    goal = _get_owned_draft_goal(db, current_user, goal_id)
+
+    goal.status = "ACTIVE"
+    goal.start_date = date.today()
+    goal.unlocked_until_day = 1
+
+    db.commit()
+
+    return {"message": "Goal approved successfully"}
+
+
+@router.post("/{goal_id}/regenerate")
+def regenerate_goal(
+    goal_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    goal = _get_owned_draft_goal(db, current_user, goal_id)
+
+    category = goal.category or detect_category(goal.goal_text)
+    answers = _load_goal_answers(goal)
+    prompt = build_prompt(goal.goal_text, category, answers)
+
+    try:
+        tasks_data = generate_tasks_from_ai(prompt)
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail="Failed to generate valid tasks") from exc
+
+    db.query(Task).filter(Task.goal_id == goal.id).delete()
+    db.commit()
+
+    _save_tasks(db, goal.id, tasks_data)
+
+    return {"goal_id": goal.id, "tasks": tasks_data}
 
 
 @router.post("/")
@@ -19,42 +204,39 @@ def create_goal(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    
     goal_text = goal.get("goal_text")
+    if not isinstance(goal_text, str):
+        goal_text = str(goal_text or "")
     if not goal_text or goal_text.strip() == "":
         raise HTTPException(status_code=400, detail="Goal cannot be empty")
 
-    plan = generate_plan(goal_text)
+    category = goal.get("category") or "General"
+    if not isinstance(category, str):
+        category = str(category)
 
-    goal_obj = Goal(
+    answers = goal.get("answers") or {}
+
+    try:
+        plan = generate_plan(goal_text, category=category, answers=answers)
+        parsed_plan = json.loads(plan)
+    except (ValueError, json.JSONDecodeError) as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="Failed to generate a valid execution plan",
+        ) from exc
+
+    goal_obj = _create_goal_with_tasks(
+        db=db,
+        current_user=current_user,
         goal_text=goal_text,
-        plan_summary="",
-        user_id=current_user.id
+        tasks_data=parsed_plan.get("tasks", []),
+        category=category,
+        answers=answers if isinstance(answers, dict) else {},
     )
-
-    db.add(goal_obj)
-    db.commit()
-    db.refresh(goal_obj)
-
-    # Parse the AI plan (it's currently a JSON string)
-    parsed_plan = json.loads(plan)
 
     # Update goal summary
     goal_obj.plan_summary = parsed_plan.get("plan_summary", "")
     db.commit()
-
-    # Insert tasks
-    for task in parsed_plan.get("tasks", []):
-        task_obj = Task(
-            goal_id=goal_obj.id,
-            day_number=task.get("day"),
-            title=task.get("title"),
-            instructions=task.get("instructions"),
-            expected_outcome=task.get("expected_outcome"),
-            status="PENDING"
-        )
-        db.add(task_obj)
-        db.commit()
 
     return {
         "goal": goal_text,
@@ -83,14 +265,7 @@ def get_tasks_by_goal(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    goal = (
-        db.query(Goal)
-        .filter(Goal.id == goal_id, Goal.user_id == current_user.id)
-        .first()
-    )
-
-    if not goal:
-        raise HTTPException(status_code=404, detail="Goal not found")
+    goal = _get_owned_goal(db, current_user, goal_id)
 
     tasks = db.query(Task).filter(Task.goal_id == goal_id).all()
 
@@ -133,14 +308,7 @@ def activate_goal(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    goal = (
-        db.query(Goal)
-        .filter(Goal.id == goal_id, Goal.user_id == current_user.id)
-        .first()
-    )
-
-    if not goal:
-        raise HTTPException(status_code=404, detail="Goal not found")
+    goal = _get_owned_goal(db, current_user, goal_id)
 
     goal.status = "ACTIVE"
     goal.start_date = date.today()

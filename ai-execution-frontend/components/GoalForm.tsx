@@ -1,137 +1,335 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useState } from "react";
 import { apiFetch } from "../lib/api";
 
+type GoalQuestion = {
+  key: string;
+  question: string;
+};
+
+type GeneratedTask = {
+  day_number: number;
+  title: string;
+};
+
 export default function GoalForm({ onGoalActivated }: any) {
-  const [goal, setGoal] = useState("");
-  const [summary, setSummary] = useState("");
-  const [goalId, setGoalId] = useState(null);
-  const searchParams = useSearchParams();
+  const [step, setStep] = useState(1);
+  const [goalText, setGoalText] = useState("");
+  const [category, setCategory] = useState("");
+  const [questions, setQuestions] = useState<GoalQuestion[]>([]);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [generatedTasks, setGeneratedTasks] = useState<GeneratedTask[]>([]);
+  const [goalId, setGoalId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
-  const [planTasks, setPlanTasks] = useState([]);
-  const [planApproved, setPlanApproved] = useState(false);
+  const [loadingAction, setLoadingAction] = useState<
+    "questions" | "generate" | "approve" | "regenerate" | null
+  >(null);
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    const goalFromUrl = searchParams.get("goal");
+  function resetForm() {
+    setStep(1);
+    setGoalText("");
+    setCategory("");
+    setQuestions([]);
+    setAnswers({});
+    setGeneratedTasks([]);
+    setGoalId(null);
+    setLoadingAction(null);
+    setError("");
+  }
 
-    if (goalFromUrl) {
-      setGoalId(goalFromUrl);
+  async function getErrorMessage(response: Response) {
+    try {
+      const data = await response.json();
+      return data.detail || "Something went wrong. Please try again.";
+    } catch {
+      return "Something went wrong. Please try again.";
     }
-  }, []);
+  }
 
-  async function submitGoal() {
-    if (!goal || goal.trim() === "") {
-      alert("Please enter a goal first");
+  async function handleNext() {
+    if (!goalText.trim()) {
+      setError("Please enter a goal first");
       return;
     }
 
-    setSummary("");
     setLoading(true);
-    const response = await apiFetch("/goals/", {
-      method: "POST",
-      body: JSON.stringify({
-        goal_text: goal,
-      }),
-    });
+    setLoadingAction("questions");
+    setError("");
 
-    const data = await response.json();
-    console.log("Data:", data);
-    setGoalId(data.goal_id);
+    try {
+      const response = await apiFetch("/goals/intake/start", {
+        method: "POST",
+        body: JSON.stringify({
+          goal_text: goalText,
+        }),
+      });
 
-    const parsedPlan = JSON.parse(data.plan);
+      if (!response.ok) {
+        setError(await getErrorMessage(response));
+        return;
+      }
 
-    setSummary(parsedPlan.plan_summary);
-    setPlanTasks(parsedPlan.tasks);
-    setLoading(false);
-    setGoal("");
+      const data = await response.json();
+
+      setCategory(data.category || "");
+      setQuestions(Array.isArray(data.questions) ? data.questions : []);
+      setAnswers({});
+      setStep(2);
+    } catch {
+      setError("Unable to start goal intake. Please try again.");
+    } finally {
+      setLoading(false);
+      setLoadingAction(null);
+    }
   }
+
+  async function handleGeneratePlan() {
+    setLoading(true);
+    setLoadingAction("generate");
+    setError("");
+
+    try {
+      const response = await apiFetch("/goals/intake/complete", {
+        method: "POST",
+        body: JSON.stringify({
+          goal_text: goalText,
+          category,
+          answers,
+        }),
+      });
+
+      if (!response.ok) {
+        setError(await getErrorMessage(response));
+        return;
+      }
+
+      const data = await response.json();
+
+      setGeneratedTasks(Array.isArray(data.tasks) ? data.tasks : []);
+      setGoalId(typeof data.goal_id === "number" ? data.goal_id : null);
+      setStep(3);
+    } catch {
+      setError("Unable to generate plan. Please try again.");
+    } finally {
+      setLoading(false);
+      setLoadingAction(null);
+    }
+  }
+
+  async function handleApprovePlan() {
+    if (!goalId) {
+      setError("Unable to approve this plan. Please generate it again.");
+      return;
+    }
+
+    setLoading(true);
+    setLoadingAction("approve");
+    setError("");
+
+    try {
+      const response = await apiFetch(`/goals/${goalId}/approve`, {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        setError(await getErrorMessage(response));
+        return;
+      }
+
+      resetForm();
+
+      if (onGoalActivated) {
+        onGoalActivated();
+      }
+    } catch {
+      setError("Unable to approve plan. Please try again.");
+    } finally {
+      setLoading(false);
+      setLoadingAction(null);
+    }
+  }
+
+  async function handleRegeneratePlan() {
+    if (!goalId) {
+      setError("Unable to regenerate this plan. Please start again.");
+      return;
+    }
+
+    setLoading(true);
+    setLoadingAction("regenerate");
+    setError("");
+
+    try {
+      const response = await apiFetch(`/goals/${goalId}/regenerate`, {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        setError(await getErrorMessage(response));
+        return;
+      }
+
+      const data = await response.json();
+
+      setGeneratedTasks(Array.isArray(data.tasks) ? data.tasks : []);
+      setGoalId(typeof data.goal_id === "number" ? data.goal_id : goalId);
+    } catch {
+      setError("Unable to regenerate plan. Please try again.");
+    } finally {
+      setLoading(false);
+      setLoadingAction(null);
+    }
+  }
+
+  const loadingMessage =
+    loadingAction === "questions"
+      ? "Loading questions..."
+      : loadingAction === "generate"
+        ? "Generating plan..."
+        : loadingAction === "approve"
+          ? "Approving plan..."
+          : "Regenerating plan...";
 
   return (
     <div style={{ marginTop: 40 }}>
       <h2>Create Goal</h2>
 
-      <input
-        value={goal}
-        onChange={(e) => setGoal(e.target.value)}
-        placeholder="Enter your goal"
-        style={{
-          padding: 10,
-          width: 300,
-          marginRight: 10,
-        }}
-      />
+      {step === 1 && (
+        <div>
+          <input
+            value={goalText}
+            onChange={(e) => setGoalText(e.target.value)}
+            placeholder="Enter your goal"
+            style={{
+              padding: 10,
+              width: 300,
+              marginRight: 10,
+            }}
+          />
 
-      <button onClick={submitGoal} disabled={loading}>
-        {loading ? "Generating..." : "Generate Plan"}
-      </button>
+          <button onClick={handleNext} disabled={loading}>
+            {loading ? "Loading..." : "Next"}
+          </button>
+        </div>
+      )}
+
+      {step === 2 && (
+        <div className="goal-card">
+          <div style={{ marginBottom: 15 }}>
+            <strong>Goal:</strong> {goalText}
+          </div>
+
+          {category && (
+            <div style={{ marginBottom: 15, fontSize: "14px", color: "#666" }}>
+              Category: {category}
+            </div>
+          )}
+
+          {questions.map((q) => (
+            <div key={q.key} style={{ marginBottom: 12 }}>
+              <label
+                htmlFor={q.key}
+                style={{ display: "block", marginBottom: 6 }}
+              >
+                {q.question}
+              </label>
+              <input
+                id={q.key}
+                type="text"
+                value={answers[q.key] || ""}
+                onChange={(e) =>
+                  setAnswers((prev) => ({
+                    ...prev,
+                    [q.key]: e.target.value,
+                  }))
+                }
+                style={{
+                  padding: 10,
+                  width: 300,
+                }}
+              />
+            </div>
+          ))}
+
+          <div style={{ marginTop: 15, display: "flex", gap: "10px" }}>
+            <button onClick={handleGeneratePlan} disabled={loading}>
+              {loading ? "Generating..." : "Generate Plan"}
+            </button>
+
+            <button
+              style={{ background: "#e5e7eb", color: "#111" }}
+              onClick={() => {
+                setStep(1);
+                setError("");
+              }}
+              disabled={loading}
+            >
+              Back
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 3 && (
+        <div className="goal-card">
+          <div style={{ marginBottom: 15 }}>
+            <strong>Goal:</strong> {goalText}
+          </div>
+
+          <div style={{ marginBottom: 15 }}>
+            <strong>Review Tasks</strong>
+          </div>
+
+          <div style={{ display: "grid", gap: "12px" }}>
+            {generatedTasks.map((task) => (
+              <div
+                key={`${task.day_number}-${task.title}`}
+                style={{
+                  padding: 12,
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 8,
+                }}
+              >
+                <strong>Day {task.day_number}</strong>
+                <p style={{ margin: "8px 0 0" }}>{task.title}</p>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginTop: 15, display: "flex", gap: "10px" }}>
+            <button onClick={handleApprovePlan} disabled={loading || !goalId}>
+              {loadingAction === "approve" ? "Approving..." : "Approve Plan"}
+            </button>
+
+            <button
+              style={{ background: "#e5e7eb", color: "#111" }}
+              onClick={handleRegeneratePlan}
+              disabled={loading || !goalId}
+            >
+              {loadingAction === "regenerate"
+                ? "Regenerating..."
+                : "Regenerate Plan"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <p style={{ marginTop: 15, color: "#dc2626" }}>
+          {error}
+        </p>
+      )}
 
       {loading && (
         <div className="ai-overlay">
           <div className="ai-overlay-content">
             <div className="spinner"></div>
-            <p>Generating AI plan...</p>
+            <p>{loadingMessage}</p>
           </div>
         </div>
       )}
-
-      <div style={{ marginTop: 30 }}>
-        {summary && !planApproved && (
-          <div style={{ marginTop: 30 }}>
-            <h3>Plan Summary</h3>
-            <p>{summary}</p>
-          </div>
-        )}
-        {planTasks.length > 0 && !planApproved && (
-          <div className="goal-card">
-            <h3>Execution Plan</h3>
-
-            {planTasks.map((task: any) => (
-              <div key={task.day} style={{ marginBottom: "8px" }}>
-                <strong>Day {task.day}</strong>: {task.title}
-              </div>
-            ))}
-
-            <div style={{ marginTop: "15px", display: "flex", gap: "10px" }}>
-              <button
-                onClick={ async () => {
-                  setPlanApproved(true);
-                  setSummary("");
-                  setPlanTasks([]);
-
-                  await apiFetch(`/goals/${goalId}/activate`, {
-                    method: "PATCH",
-                  });
-
-                  if (onGoalActivated) {
-                    onGoalActivated();
-                  }
-
-                  const focusSection = document.getElementById("today");
-
-                  if (focusSection) {
-                    focusSection.scrollIntoView({ behavior: "smooth" });
-                  }
-                }}
-              >
-                Start Execution
-              </button>
-
-              <button
-                style={{ background: "#e5e7eb", color: "#111" }}
-                onClick={() => {
-                  setSummary("");
-                  setPlanTasks([]);
-                  setPlanApproved(false);
-                }}
-              >
-                Regenerate Plan
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 }

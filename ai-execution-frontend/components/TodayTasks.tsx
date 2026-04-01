@@ -2,22 +2,45 @@
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "../lib/api";
+import TaskFocusChat from "./TaskFocusChat";
+
+type TodayTask = {
+  id: number;
+  title: string;
+  day_number: number;
+  goal_name: string;
+};
+
+type ChatMessage = {
+  role: "user" | "ai";
+  text: string;
+};
 
 export default function TodayTasks({ refreshTrigger, onTaskComplete }: any) {
-  const [tasks, setTasks] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<TodayTask[]>([]);
   const [completed, setCompleted] = useState(0);
   const [dayCompleted, setDayCompleted] = useState(false);
   const [initialCount, setInitialCount] = useState(0);
   const [removingTask, setRemovingTask] = useState<number | null>(null);
+  const [activeTaskId, setActiveTaskId] = useState<number | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
 
   function loadTasks() {
     apiFetch("/tasks/today")
       .then((res) => res.json())
       .then((data) => {
-        setTasks(data);
-        setInitialCount(data.length);
+        const nextTasks = Array.isArray(data) ? data : [];
+
+        setTasks(nextTasks);
+        setInitialCount(nextTasks.length);
         setCompleted(0);
         setDayCompleted(false);
+        setActiveTaskId((prev) =>
+          nextTasks.some((task) => task.id === prev) ? prev : null,
+        );
+        if (!nextTasks.some((task) => task.id === activeTaskId)) {
+          setMessages([]);
+        }
       });
   }
 
@@ -29,8 +52,10 @@ export default function TodayTasks({ refreshTrigger, onTaskComplete }: any) {
     apiFetch("/tasks/today")
       .then((res) => res.json())
       .then((data) => {
-        setTasks(data);
-        setInitialCount(data.length);
+        const nextTasks = Array.isArray(data) ? data : [];
+
+        setTasks(nextTasks);
+        setInitialCount(nextTasks.length);
         setCompleted(0);
         setDayCompleted(false);
       });
@@ -41,6 +66,12 @@ export default function TodayTasks({ refreshTrigger, onTaskComplete }: any) {
   }, [refreshTrigger]);
 
   const progress = initialCount === 0 ? 0 : (completed / initialCount) * 100;
+  const activeTask = tasks.find((task) => task.id === activeTaskId) || null;
+
+  function openChat(taskId: number) {
+    setActiveTaskId(taskId);
+    setMessages([]);
+  }
 
   function completeTask(taskId: number) {
     const remainingVisibleTasks = tasks.length;
@@ -54,6 +85,11 @@ export default function TodayTasks({ refreshTrigger, onTaskComplete }: any) {
         setTasks((prev) => prev.filter((task) => task.id !== taskId));
         setRemovingTask(null);
       }, 250);
+
+      if (activeTaskId === taskId) {
+        setActiveTaskId(null);
+        setMessages([]);
+      }
 
       setCompleted((prev) => prev + 1);
 
@@ -111,18 +147,44 @@ export default function TodayTasks({ refreshTrigger, onTaskComplete }: any) {
               </div>
             </div>
 
-            <button
-              style={{
-                background: "#10b981",
-                padding: "6px 12px",
-                fontSize: "13px",
-              }}
-              onClick={() => completeTask(task.id)}
-            >
-              Done
-            </button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                style={{
+                  background: activeTaskId === task.id ? "#4338ca" : "#6366f1",
+                  padding: "6px 12px",
+                  fontSize: "13px",
+                }}
+                onClick={() => openChat(task.id)}
+              >
+                Start Focus Mode
+              </button>
+
+              <button
+                style={{
+                  background: "#10b981",
+                  padding: "6px 12px",
+                  fontSize: "13px",
+                }}
+                onClick={() => completeTask(task.id)}
+              >
+                Done
+              </button>
+            </div>
           </div>
         ))}
+
+      {activeTask && (
+        <TaskFocusChat
+          activeTaskId={activeTask.id}
+          taskTitle={activeTask.title}
+          messages={messages}
+          setMessages={setMessages}
+          onClose={() => {
+            setActiveTaskId(null);
+            setMessages([]);
+          }}
+        />
+      )}
     </div>
   );
 }
