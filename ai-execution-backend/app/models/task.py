@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String
 from datetime import datetime
 from app.database.db import Base
 
@@ -17,6 +17,8 @@ class Task(Base):
     instructions = Column(String)
 
     expected_outcome = Column(String)
+
+    input_schema = Column(JSON, nullable=True)
 
     status = Column(String, default="PENDING")
 

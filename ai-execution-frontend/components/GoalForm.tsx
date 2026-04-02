@@ -193,20 +193,15 @@ export default function GoalForm({ onGoalActivated }: any) {
           : "Regenerating plan...";
 
   return (
-    <div style={{ marginTop: 40 }}>
+    <div className="goal-form">
       <h2>Create Goal</h2>
 
       {step === 1 && (
-        <div>
+        <div className="goal-input-row">
           <input
             value={goalText}
             onChange={(e) => setGoalText(e.target.value)}
             placeholder="Enter your goal"
-            style={{
-              padding: 10,
-              width: 300,
-              marginRight: 10,
-            }}
           />
 
           <button onClick={handleNext} disabled={loading}>
@@ -216,23 +211,20 @@ export default function GoalForm({ onGoalActivated }: any) {
       )}
 
       {step === 2 && (
-        <div className="goal-card">
-          <div style={{ marginBottom: 15 }}>
+        <div className="goal-card goal-flow-card">
+          <div className="goal-summary">
             <strong>Goal:</strong> {goalText}
           </div>
 
           {category && (
-            <div style={{ marginBottom: 15, fontSize: "14px", color: "#666" }}>
+            <div className="goal-category">
               Category: {category}
             </div>
           )}
 
           {questions.map((q) => (
-            <div key={q.key} style={{ marginBottom: 12 }}>
-              <label
-                htmlFor={q.key}
-                style={{ display: "block", marginBottom: 6 }}
-              >
+            <div key={q.key} className="form-field">
+              <label htmlFor={q.key} className="form-label">
                 {q.question}
               </label>
               <input
@@ -245,21 +237,18 @@ export default function GoalForm({ onGoalActivated }: any) {
                     [q.key]: e.target.value,
                   }))
                 }
-                style={{
-                  padding: 10,
-                  width: 300,
-                }}
               />
             </div>
           ))}
 
-          <div style={{ marginTop: 15, display: "flex", gap: "10px" }}>
+          <div className="action-row">
             <button onClick={handleGeneratePlan} disabled={loading}>
               {loading ? "Generating..." : "Generate Plan"}
             </button>
 
             <button
-              style={{ background: "#e5e7eb", color: "#111" }}
+              type="button"
+              className="button-secondary"
               onClick={() => {
                 setStep(1);
                 setError("");
@@ -273,38 +262,35 @@ export default function GoalForm({ onGoalActivated }: any) {
       )}
 
       {step === 3 && (
-        <div className="goal-card">
-          <div style={{ marginBottom: 15 }}>
+        <div className="goal-card goal-flow-card">
+          <div className="goal-summary">
             <strong>Goal:</strong> {goalText}
           </div>
 
-          <div style={{ marginBottom: 15 }}>
+          <div className="goal-summary">
             <strong>Review Tasks</strong>
           </div>
 
-          <div style={{ display: "grid", gap: "12px" }}>
+          <div className="generated-task-list">
             {generatedTasks.map((task) => (
               <div
                 key={`${task.day_number}-${task.title}`}
-                style={{
-                  padding: 12,
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 8,
-                }}
+                className="generated-task-card"
               >
                 <strong>Day {task.day_number}</strong>
-                <p style={{ margin: "8px 0 0" }}>{task.title}</p>
+                <p>{task.title}</p>
               </div>
             ))}
           </div>
 
-          <div style={{ marginTop: 15, display: "flex", gap: "10px" }}>
+          <div className="action-row">
             <button onClick={handleApprovePlan} disabled={loading || !goalId}>
               {loadingAction === "approve" ? "Approving..." : "Approve Plan"}
             </button>
 
             <button
-              style={{ background: "#e5e7eb", color: "#111" }}
+              type="button"
+              className="button-secondary"
               onClick={handleRegeneratePlan}
               disabled={loading || !goalId}
             >
@@ -316,11 +302,7 @@ export default function GoalForm({ onGoalActivated }: any) {
         </div>
       )}
 
-      {error && (
-        <p style={{ marginTop: 15, color: "#dc2626" }}>
-          {error}
-        </p>
-      )}
+      {error && <p className="error-text">{error}</p>}
 
       {loading && (
         <div className="ai-overlay">

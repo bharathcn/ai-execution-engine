@@ -2,14 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "../lib/api";
+import TaskExecutionCard, { type TodayTask } from "./TaskExecutionCard";
 import TaskFocusChat from "./TaskFocusChat";
-
-type TodayTask = {
-  id: number;
-  title: string;
-  day_number: number;
-  goal_name: string;
-};
 
 type ChatMessage = {
   role: "user" | "ai";
@@ -35,12 +29,17 @@ export default function TodayTasks({ refreshTrigger, onTaskComplete }: any) {
         setInitialCount(nextTasks.length);
         setCompleted(0);
         setDayCompleted(false);
-        setActiveTaskId((prev) =>
-          nextTasks.some((task) => task.id === prev) ? prev : null,
-        );
-        if (!nextTasks.some((task) => task.id === activeTaskId)) {
-          setMessages([]);
-        }
+        setActiveTaskId((prev) => {
+          const nextActiveTaskId = nextTasks.some((task) => task.id === prev)
+            ? prev
+            : null;
+
+          if (nextActiveTaskId === null) {
+            setMessages([]);
+          }
+
+          return nextActiveTaskId;
+        });
       });
   }
 
@@ -73,42 +72,38 @@ export default function TodayTasks({ refreshTrigger, onTaskComplete }: any) {
     setMessages([]);
   }
 
-  function completeTask(taskId: number) {
+  function handleTaskCompleted(taskId: number) {
     const remainingVisibleTasks = tasks.length;
 
-    apiFetch(`/tasks/${taskId}/complete`, {
-      method: "PATCH",
-    }).then(() => {
-      setRemovingTask(taskId);
+    setRemovingTask(taskId);
 
-      setTimeout(() => {
-        setTasks((prev) => prev.filter((task) => task.id !== taskId));
-        setRemovingTask(null);
-      }, 250);
+    setTimeout(() => {
+      setTasks((prev) => prev.filter((task) => task.id !== taskId));
+      setRemovingTask(null);
+    }, 250);
 
-      if (activeTaskId === taskId) {
-        setActiveTaskId(null);
-        setMessages([]);
-      }
+    if (activeTaskId === taskId) {
+      setActiveTaskId(null);
+      setMessages([]);
+    }
 
-      setCompleted((prev) => prev + 1);
+    setCompleted((prev) => prev + 1);
 
-      if (remainingVisibleTasks === 1) {
-        setDayCompleted(true);
-      }
+    if (remainingVisibleTasks === 1) {
+      setDayCompleted(true);
+    }
 
-      if (onTaskComplete) {
-        onTaskComplete();
-      }
-    });
+    if (onTaskComplete) {
+      onTaskComplete();
+    }
   }
 
   return (
     <div>
       <h2>Today's Focus</h2>
 
-      <div style={{ marginBottom: "20px" }}>
-        <div style={{ fontSize: "14px", marginBottom: "6px" }}>
+      <div className="progress-section">
+        <div className="progress-label">
           Today's Progress ({completed}/{initialCount})
         </div>
 
@@ -118,65 +113,38 @@ export default function TodayTasks({ refreshTrigger, onTaskComplete }: any) {
       </div>
 
       {dayCompleted && (
-        <div className="goal-card" style={{ background: "#f0fdf4" }}>
-          <h3 style={{ margin: "0 0 10px 0" }}>Day Completed</h3>
+        <div className="goal-card success-card">
+          <h3 className="success-card-title">Day Completed</h3>
           <button onClick={unlockNextDay}>Unlock Next Day</button>
         </div>
       )}
 
       {!dayCompleted &&
         tasks.map((task) => (
-          <div
+          <TaskExecutionCard
             key={task.id}
-            className={`goal-card ${removingTask === task.id ? "task-fade-out" : ""}`}
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <div>
-              <strong>{task.title}</strong>
-
-              <div style={{ fontSize: "13px", color: "#666" }}>
-                Day {task.day_number}
-              </div>
-
-              <div style={{ fontSize: "12px", color: "#888" }}>
-                Goal: {task.goal_name}
-              </div>
-            </div>
-
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                style={{
-                  background: activeTaskId === task.id ? "#4338ca" : "#6366f1",
-                  padding: "6px 12px",
-                  fontSize: "13px",
-                }}
-                onClick={() => openChat(task.id)}
-              >
-                Start Focus Mode
-              </button>
-
-              <button
-                style={{
-                  background: "#10b981",
-                  padding: "6px 12px",
-                  fontSize: "13px",
-                }}
-                onClick={() => completeTask(task.id)}
-              >
-                Done
-              </button>
-            </div>
-          </div>
+            task={task}
+            helpOpen={activeTaskId === task.id}
+            isRemoving={removingTask === task.id}
+            onOpenHelp={openChat}
+            onTaskCompleted={handleTaskCompleted}
+          />
         ))}
+
+      {!dayCompleted && tasks.length === 0 && (
+        <div className="goal-card">
+          <strong>No tasks unlocked right now.</strong>
+          <div className="task-submeta">
+            Approve a goal or unlock the next day to keep momentum going.
+          </div>
+        </div>
+      )}
 
       {activeTask && (
         <TaskFocusChat
           activeTaskId={activeTask.id}
           taskTitle={activeTask.title}
+          hasStructuredInput={activeTask.requires_input}
           messages={messages}
           setMessages={setMessages}
           onClose={() => {

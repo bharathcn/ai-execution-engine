@@ -3,7 +3,22 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../lib/api";
 
-function ProgressRing({ progress }) {
+type Goal = {
+  id: number;
+  goal_text: string;
+  status: "ACTIVE" | "DRAFT" | "COMPLETED";
+  total_tasks: number;
+  completed_tasks: number;
+};
+
+type GoalTask = {
+  id: number;
+  day_number: number;
+  title: string;
+  status: "PENDING" | "COMPLETED";
+};
+
+function ProgressRing({ progress }: { progress: number }) {
 
   const radius = 14
   const stroke = 3
@@ -15,9 +30,9 @@ function ProgressRing({ progress }) {
 
   return (
     <svg
+      className="progress-ring"
       height={radius * 2}
       width={radius * 2}
-      style={{marginRight:"8px"}}
     >
       <circle
         stroke="#e5e7eb"
@@ -47,11 +62,11 @@ function ProgressRing({ progress }) {
 }
 
 export default function YourGoals({ refreshTrigger }: any) {
-  const [goals, setGoals] = useState([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [visibleCount, setVisibleCount] = useState(5);
 
-  const [expandedGoal, setExpandedGoal] = useState(null);
-  const [goalTasks, setGoalTasks] = useState({});
+  const [expandedGoal, setExpandedGoal] = useState<number | null>(null);
+  const [goalTasks, setGoalTasks] = useState<Record<number, GoalTask[]>>({});
 
   function loadGoals() {
     apiFetch("/goals")
@@ -71,7 +86,7 @@ export default function YourGoals({ refreshTrigger }: any) {
     loadGoals();
   }, [refreshTrigger]);
 
-  function toggleGoal(goalId) {
+  function toggleGoal(goalId: number) {
     if (expandedGoal === goalId) {
       setExpandedGoal(null);
       return;
@@ -102,6 +117,9 @@ export default function YourGoals({ refreshTrigger }: any) {
           goal.total_tasks === 0
             ? 0
             : (goal.completed_tasks / goal.total_tasks) * 100;
+        const tasksForGoal = Array.isArray(goalTasks[goal.id])
+          ? goalTasks[goal.id]
+          : [];
 
         return (
           <div
@@ -111,50 +129,46 @@ export default function YourGoals({ refreshTrigger }: any) {
               opacity: goal.status === "COMPLETED" ? 0.6 : 1,
             }}
           >
-            <div
-              style={{ cursor: "pointer" }}
+            <button
+              type="button"
+              className="goal-toggle"
               onClick={() => toggleGoal(goal.id)}
             >
-              <div
-                style={{ display: "flex", alignItems: "center", gap: "8px" }}
-              >
+              <div className="goal-summary-row">
                 <ProgressRing progress={progress} />
-                <strong>{goal.goal_text}</strong>
+                <div className="goal-summary-main">
+                  <div className="goal-heading-row">
+                    <strong className="goal-title">{goal.goal_text}</strong>
 
-                {goal.status === "ACTIVE" && (
-                  <span className="badge badge-active">ACTIVE</span>
-                )}
+                    {goal.status === "ACTIVE" && (
+                      <span className="badge badge-active">ACTIVE</span>
+                    )}
 
-                {goal.status === "DRAFT" && (
-                  <span className="badge badge-draft">DRAFT</span>
-                )}
+                    {goal.status === "DRAFT" && (
+                      <span className="badge badge-draft">DRAFT</span>
+                    )}
 
-                {goal.status === "COMPLETED" && (
-                  <span className="badge badge-completed">✔</span>
-                )}
+                    {goal.status === "COMPLETED" && (
+                      <span className="badge badge-completed">✔</span>
+                    )}
+                  </div>
+
+                  <div className="goal-progress-text">
+                    {goal.completed_tasks} / {goal.total_tasks} tasks
+                  </div>
+                </div>
               </div>
+            </button>
 
-              <div style={{ fontSize: "13px", color: "#666" }}>
-                {goal.completed_tasks} / {goal.total_tasks} tasks
-              </div>
-            </div>
-
-            {expandedGoal === goal.id && goalTasks[goal.id] && (
-              <div style={{ marginTop: "10px" }}>
-                {(Array.isArray(goalTasks[goal.id])
-                  ? goalTasks[goal.id]
-                  : []
-                ).map((task) => (
+            {expandedGoal === goal.id && tasksForGoal.length > 0 && (
+              <div className="goal-task-list">
+                {tasksForGoal.map((task) => (
                   <div
                     key={task.id}
-                    style={{
-                      fontSize: "13px",
-                      marginBottom: "4px",
-                      color: task.status === "COMPLETED" ? "#16a34a" : "#555",
-                    }}
+                    className={`goal-task-item ${task.status === "COMPLETED" ? "goal-task-item-completed" : ""}`}
                   >
-                    {task.status === "COMPLETED" ? "✔ " : "○ "}
-                    Day {task.day_number} — {task.title}
+                    {task.status === "COMPLETED" ? "✔ " : "○ "}Day{" "}
+                    {task.day_number} - {task.title}
                   </div>
                 ))}
               </div>
@@ -165,7 +179,7 @@ export default function YourGoals({ refreshTrigger }: any) {
 
       {visibleCount < goals.length && (
         <button
-          style={{ marginTop: "15px" }}
+          className="load-more-button"
           onClick={() => setVisibleCount((prev) => prev + 5)}
         >
           Load More Goals

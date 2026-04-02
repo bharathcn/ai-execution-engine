@@ -7,11 +7,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.database.db import engine, Base
 from app.database.schema_patch import patch_sqlite_schema
+from app.models.execution_session import ExecutionSession
 from app.models.goal import Goal
 from app.models.task import Task
+from app.models.task_session import TaskSession
 from app.models.user import User
 
 from app.api.auth_routes import router as auth_router
+from app.api.focus_routes import router as focus_router
 from app.api.goal_routes import router as goal_router
 from app.api.task_routes import router as task_router
 
@@ -119,5 +122,6 @@ def health():
     return {"status":"ok"}
 
 app.include_router(auth_router)
+app.include_router(focus_router, prefix="/focus")
 app.include_router(goal_router, prefix="/goals")
 app.include_router(task_router, prefix="/tasks")
